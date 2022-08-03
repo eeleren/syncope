@@ -32,6 +32,10 @@ public enum PolicyType {
      */
     PASSWORD,
     /**
+     * For handling propagation behavior.
+     */
+    PROPAGATION,
+    /**
      * For handling conflicts resolution during pull.
      */
     PULL,

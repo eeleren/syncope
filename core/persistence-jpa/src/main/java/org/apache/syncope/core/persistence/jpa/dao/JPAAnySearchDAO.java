@@ -65,8 +65,6 @@ import org.apache.syncope.core.persistence.api.entity.Realm;
  */
 public class JPAAnySearchDAO extends AbstractAnySearchDAO {
 
-    protected static final String EMPTY_QUERY = "SELECT any_id FROM user_search WHERE 1=2";
-
     protected String buildAdminRealmsFilter(
             final Set<String> realmKeys,
             final SearchSupport svs,
@@ -183,12 +181,12 @@ public class JPAAnySearchDAO extends AbstractAnySearchDAO {
             OrderBySupport obs = parseOrderBy(svs, orderBy);
             if (queryString.charAt(0) == '(') {
                 queryString.insert(0, buildSelect(obs));
-                queryString.append(buildWhere(svs, queryInfo.getRight(), obs));
             } else {
                 queryString.insert(0, buildSelect(obs).append('('));
-                queryString.append(')').append(buildWhere(svs, queryInfo.getRight(), obs));
+                queryString.append(')');
             }
             queryString.
+                    append(buildWhere(svs, obs)).
                     append(filter.getLeft()).
                     append(buildOrderBy(obs));
 
@@ -228,9 +226,7 @@ public class JPAAnySearchDAO extends AbstractAnySearchDAO {
             if (parameters.get(i) instanceof Date) {
                 query.setParameter(i + 1, (Date) parameters.get(i), TemporalType.TIMESTAMP);
             } else if (parameters.get(i) instanceof Boolean) {
-                query.setParameter(i + 1, ((Boolean) parameters.get(i))
-                        ? 1
-                        : 0);
+                query.setParameter(i + 1, ((Boolean) parameters.get(i)) ? 1 : 0);
             } else {
                 query.setParameter(i + 1, parameters.get(i));
             }
@@ -248,7 +244,6 @@ public class JPAAnySearchDAO extends AbstractAnySearchDAO {
 
     protected void processOBS(
             final SearchSupport svs,
-            final Set<String> involvedPlainAttrs,
             final OrderBySupport obs,
             final StringBuilder where) {
 
@@ -257,13 +252,16 @@ public class JPAAnySearchDAO extends AbstractAnySearchDAO {
 
         obs.views.forEach(searchView -> {
             where.append(',');
+
+            boolean searchViewAddedToWhere = false;
             if (searchView.name.equals(svs.asSearchViewSupport().attr().name)) {
                 StringBuilder attrWhere = new StringBuilder();
                 StringBuilder nullAttrWhere = new StringBuilder();
 
-                where.append(" (SELECT * FROM ").append(searchView.name);
-
                 if (svs.nonMandatorySchemas || obs.nonMandatorySchemas) {
+                    where.append(" (SELECT * FROM ").append(searchView.name);
+                    searchViewAddedToWhere = true;
+
                     attrs.forEach(field -> {
                         if (attrWhere.length() == 0) {
                             attrWhere.append(" WHERE ");
@@ -287,34 +285,30 @@ public class JPAAnySearchDAO extends AbstractAnySearchDAO {
                                 append(svs.asSearchViewSupport().attr().name).append(' ').append(searchView.alias).
                                 append(" WHERE ").append("schema_id='").append(field).append("')");
                     });
-                    where.append(attrWhere).append(nullAttrWhere);
+                    where.append(attrWhere).append(nullAttrWhere).append(')');
                 }
-
-                where.append(')');
-            } else {
+            }
+            if (!searchViewAddedToWhere) {
                 where.append(searchView.name);
             }
+
             where.append(' ').append(searchView.alias);
         });
     }
 
     protected StringBuilder buildWhere(
             final SearchSupport svs,
-            final Set<String> involvedPlainAttrs,
             final OrderBySupport obs) {
 
         StringBuilder where = new StringBuilder(" u");
-        processOBS(svs, involvedPlainAttrs, obs, where);
+        processOBS(svs, obs, where);
         where.append(" WHERE ");
-        obs.views.forEach(searchView -> {
-            where.append("u.any_id=").append(searchView.alias).append(".any_id AND ");
-        });
+
+        obs.views.forEach(searchView -> where.append("u.any_id=").append(searchView.alias).append(".any_id AND "));
 
         obs.items.stream().
                 filter(item -> StringUtils.isNotBlank(item.where)).
-                forEachOrdered((item) -> {
-                    where.append(item.where).append(" AND ");
-                });
+                forEach(item -> where.append(item.where).append(" AND "));
 
         return where;
     }
@@ -443,7 +437,7 @@ public class JPAAnySearchDAO extends AbstractAnySearchDAO {
                         }
                         if (orderByUniquePlainSchemas.size() > 1 || orderByNonUniquePlainSchemas.size() > 1) {
                             SyncopeClientException invalidSearch =
-                                    SyncopeClientException.build(ClientExceptionType.InvalidSearchExpression);
+                                    SyncopeClientException.build(ClientExceptionType.InvalidSearchParameters);
                             invalidSearch.getElements().add("Order by more than one attribute is not allowed; "
                                     + "remove one from " + (orderByUniquePlainSchemas.size() > 1
                                     ? orderByUniquePlainSchemas : orderByNonUniquePlainSchemas));
@@ -643,12 +637,7 @@ public class JPAAnySearchDAO extends AbstractAnySearchDAO {
             final List<Object> parameters,
             final SearchSupport svs) {
 
-        String rightAnyObjectKey;
-        try {
-            rightAnyObjectKey = check(cond);
-        } catch (IllegalArgumentException e) {
-            return EMPTY_QUERY;
-        }
+        String rightAnyObjectKey = check(cond);
 
         StringBuilder query = new StringBuilder("SELECT DISTINCT any_id FROM ").
                 append(svs.field().name).append(" WHERE ");
@@ -673,12 +662,7 @@ public class JPAAnySearchDAO extends AbstractAnySearchDAO {
             final List<Object> parameters,
             final SearchSupport svs) {
 
-        List<String> groupKeys;
-        try {
-            groupKeys = check(cond);
-        } catch (IllegalArgumentException e) {
-            return EMPTY_QUERY;
-        }
+        List<String> groupKeys = check(cond);
 
         String where = groupKeys.stream().
                 map(key -> "group_id=?" + setParameter(parameters, key)).
@@ -840,12 +824,7 @@ public class JPAAnySearchDAO extends AbstractAnySearchDAO {
             final List<Object> parameters,
             final SearchSupport svs) {
 
-        Realm realm;
-        try {
-            realm = check(cond);
-        } catch (IllegalArgumentException e) {
-            return EMPTY_QUERY;
-        }
+        Realm realm = check(cond);
 
         StringBuilder query = new StringBuilder("SELECT DISTINCT any_id FROM ").
                 append(svs.field().name).append(" WHERE (");
@@ -871,12 +850,7 @@ public class JPAAnySearchDAO extends AbstractAnySearchDAO {
             final List<Object> parameters,
             final SearchSupport svs) {
 
-        String memberKey;
-        try {
-            memberKey = check(cond);
-        } catch (IllegalArgumentException e) {
-            return EMPTY_QUERY;
-        }
+        String memberKey = check(cond);
 
         StringBuilder query = new StringBuilder("SELECT DISTINCT any_id FROM ").
                 append(svs.field().name).append(" WHERE ");
@@ -1044,12 +1018,7 @@ public class JPAAnySearchDAO extends AbstractAnySearchDAO {
             final List<Object> parameters,
             final SearchSupport svs) {
 
-        Pair<PlainSchema, PlainAttrValue> checked;
-        try {
-            checked = check(cond, svs.anyTypeKind);
-        } catch (IllegalArgumentException e) {
-            return EMPTY_QUERY;
-        }
+        Pair<PlainSchema, PlainAttrValue> checked = check(cond, svs.anyTypeKind);
 
         StringBuilder query = new StringBuilder("SELECT DISTINCT any_id FROM ");
         switch (cond.getType()) {
@@ -1100,18 +1069,12 @@ public class JPAAnySearchDAO extends AbstractAnySearchDAO {
 
             Realm realm = realmDAO.findByFullPath(cond.getExpression());
             if (realm == null) {
-                LOG.warn("Invalid Realm full path: {}", cond.getExpression());
-                return EMPTY_QUERY;
+                throw new IllegalArgumentException("Invalid Realm full path: " + cond.getExpression());
             }
             cond.setExpression(realm.getKey());
         }
 
-        Triple<PlainSchema, PlainAttrValue, AnyCond> checked;
-        try {
-            checked = check(cond, svs.anyTypeKind);
-        } catch (IllegalArgumentException e) {
-            return EMPTY_QUERY;
-        }
+        Triple<PlainSchema, PlainAttrValue, AnyCond> checked = check(cond, svs.anyTypeKind);
 
         StringBuilder query = new StringBuilder("SELECT DISTINCT any_id FROM ").
                 append(svs.field().name).append(" WHERE ");

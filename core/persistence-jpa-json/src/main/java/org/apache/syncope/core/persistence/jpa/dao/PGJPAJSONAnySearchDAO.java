@@ -180,8 +180,10 @@ public class PGJPAJSONAnySearchDAO extends JPAAnySearchDAO {
                 case EQ:
                     query.append("jsonb_path_exists(").append(schema.getKey()).append(", '$[*] ? ").
                             append("(@.").append(key);
-                    if (isStr) {
+                    if (StringUtils.containsAny(value, POSTGRESQL_REGEX_CHARS) || lower) {
                         query.append(" like_regex \"").append(escapeForLikeRegex(value).replace("'", "''")).append('"');
+                    } else if (isStr) {
+                        query.append(" == \"").append(value.replace("'", "''")).append('"');
                     } else {
                         query.append(" == ").append(value);
                     }
@@ -225,12 +227,7 @@ public class PGJPAJSONAnySearchDAO extends JPAAnySearchDAO {
             final List<Object> parameters,
             final SearchSupport svs) {
 
-        Pair<PlainSchema, PlainAttrValue> checked;
-        try {
-            checked = check(cond, svs.anyTypeKind);
-        } catch (IllegalArgumentException e) {
-            return ALWAYS_FALSE_ASSERTION;
-        }
+        Pair<PlainSchema, PlainAttrValue> checked = check(cond, svs.anyTypeKind);
 
         StringBuilder query = new StringBuilder();
 
@@ -406,12 +403,7 @@ public class PGJPAJSONAnySearchDAO extends JPAAnySearchDAO {
             final List<Object> parameters,
             final SearchSupport svs) {
 
-        Realm realm;
-        try {
-            realm = check(cond);
-        } catch (IllegalArgumentException e) {
-            return ALWAYS_FALSE_ASSERTION;
-        }
+        Realm realm = check(cond);
 
         StringBuilder query = new StringBuilder().append('(');
         if (cond.isFromGroup()) {
@@ -437,12 +429,7 @@ public class PGJPAJSONAnySearchDAO extends JPAAnySearchDAO {
             final List<Object> parameters,
             final SearchSupport svs) {
 
-        String memberKey;
-        try {
-            memberKey = check(cond);
-        } catch (IllegalArgumentException e) {
-            return ALWAYS_FALSE_ASSERTION;
-        }
+        String memberKey = check(cond);
 
         StringBuilder query = new StringBuilder().append('(');
 
@@ -508,12 +495,7 @@ public class PGJPAJSONAnySearchDAO extends JPAAnySearchDAO {
             final List<Object> parameters,
             final SearchSupport svs) {
 
-        String rightAnyObjectKey;
-        try {
-            rightAnyObjectKey = check(cond);
-        } catch (IllegalArgumentException e) {
-            return ALWAYS_FALSE_ASSERTION;
-        }
+        String rightAnyObjectKey = check(cond);
 
         StringBuilder query = new StringBuilder().append('(');
 
@@ -540,12 +522,7 @@ public class PGJPAJSONAnySearchDAO extends JPAAnySearchDAO {
             final List<Object> parameters,
             final SearchSupport svs) {
 
-        List<String> groupKeys;
-        try {
-            groupKeys = check(cond);
-        } catch (IllegalArgumentException e) {
-            return ALWAYS_FALSE_ASSERTION;
-        }
+        List<String> groupKeys = check(cond);
 
         String where = groupKeys.stream().
                 map(key -> "group_id=?" + setParameter(parameters, key)).
@@ -592,18 +569,12 @@ public class PGJPAJSONAnySearchDAO extends JPAAnySearchDAO {
 
             Realm realm = realmDAO.findByFullPath(cond.getExpression());
             if (realm == null) {
-                LOG.warn("Invalid Realm full path: {}", cond.getExpression());
-                return EMPTY_QUERY;
+                throw new IllegalArgumentException("Invalid Realm full path: " + cond.getExpression());
             }
             cond.setExpression(realm.getKey());
         }
 
-        Triple<PlainSchema, PlainAttrValue, AnyCond> checked;
-        try {
-            checked = check(cond, svs.anyTypeKind);
-        } catch (IllegalArgumentException e) {
-            return ALWAYS_FALSE_ASSERTION;
-        }
+        Triple<PlainSchema, PlainAttrValue, AnyCond> checked = check(cond, svs.anyTypeKind);
 
         StringBuilder query = new StringBuilder();
 

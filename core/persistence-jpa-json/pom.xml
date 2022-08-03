@@ -24,7 +24,7 @@ under the License.
   <parent>
     <groupId>org.apache.syncope</groupId>
     <artifactId>syncope-core</artifactId>
-    <version>2.1.11-SNAPSHOT</version>
+    <version>2.1.12-SNAPSHOT</version>
   </parent>
 
   <name>Apache Syncope Core Persistence JPA JSON</name>
@@ -187,7 +187,7 @@ under the License.
     </profile>
 
     <profile>
-      <id>postgres</id>
+      <id>pgjsonb</id>
       
       <dependencies>
         <dependency>
@@ -303,7 +303,7 @@ under the License.
     </profile>
     
     <profile>
-      <id>mysql</id>
+      <id>myjson</id>
       
       <dependencies>
         <dependency>

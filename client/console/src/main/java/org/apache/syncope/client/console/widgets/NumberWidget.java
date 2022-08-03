@@ -19,8 +19,11 @@
 package org.apache.syncope.client.console.widgets;
 
 import java.util.List;
+import org.apache.syncope.client.console.SyncopeConsoleApplication;
 import org.apache.syncope.client.console.SyncopeConsoleSession;
+import org.apache.syncope.client.console.pages.BasePage;
 import org.apache.syncope.client.console.rest.AnyTypeRestClient;
+import org.apache.syncope.client.console.topology.TabularTopology;
 import org.apache.wicket.behavior.AttributeAppender;
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
@@ -30,7 +33,6 @@ import org.apache.syncope.client.console.pages.Realms;
 import org.apache.syncope.client.console.pages.Security;
 import org.apache.syncope.client.console.topology.Topology;
 import org.apache.syncope.common.lib.types.StandardEntitlement;
-import org.apache.wicket.request.component.IRequestablePage;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 
 public class NumberWidget extends BaseWidget {
@@ -49,20 +51,27 @@ public class NumberWidget extends BaseWidget {
         WebMarkupContainer box = new WebMarkupContainer("box");
         box.add(new AttributeAppender("class", " " + bg));
 
+        @SuppressWarnings("unchecked")
+        Class<? extends BasePage> realmsPage =
+                (Class<? extends BasePage>) SyncopeConsoleApplication.get().getPageClass("realms");
+        if (realmsPage == null) {
+            realmsPage = Realms.class;
+        }
+
         boolean isAuthorized = true;
-        final PageParameters pageParameters = new PageParameters();
-        final Class<? extends IRequestablePage> responsePage;
+        PageParameters pageParameters = new PageParameters();
+        Class<? extends BasePage> responsePage;
         List<String> anyTypes = new AnyTypeRestClient().list();
         switch (id) {
             case "totalUsers":
-                pageParameters.add("selectedIndex", 1);
-                responsePage = Realms.class;
+                pageParameters.add(Realms.SELECTED_INDEX, 1);
+                responsePage = realmsPage;
                 isAuthorized = SyncopeConsoleSession.get().owns(StandardEntitlement.USER_SEARCH);
                 break;
 
             case "totalGroups":
-                pageParameters.add("selectedIndex", 2);
-                responsePage = Realms.class;
+                pageParameters.add(Realms.SELECTED_INDEX, 2);
+                responsePage = realmsPage;
                 isAuthorized = SyncopeConsoleSession.get().owns(StandardEntitlement.GROUP_SEARCH);
                 break;
 
@@ -72,10 +81,10 @@ public class NumberWidget extends BaseWidget {
                     for (int i = 0; i < anyTypes.size() && selectedIndex == null; i++) {
                         if (anyTypes.get(i).equals(label)) {
                             selectedIndex = i + 1;
-                            pageParameters.add("selectedIndex", selectedIndex);
+                            pageParameters.add(Realms.SELECTED_INDEX, selectedIndex);
                         }
                     }
-                    responsePage = Realms.class;
+                    responsePage = realmsPage;
                     isAuthorized = SyncopeConsoleSession.get().owns(label + "_SEARCH");
                 } else {
                     responsePage = Security.class;
@@ -89,21 +98,25 @@ public class NumberWidget extends BaseWidget {
                     for (int i = 0; i < anyTypes.size() && selectedIndex == null; i++) {
                         if (anyTypes.get(i).equals(label)) {
                             selectedIndex = i + 1;
-                            pageParameters.add("selectedIndex", selectedIndex);
+                            pageParameters.add(Realms.SELECTED_INDEX, selectedIndex);
                         }
                     }
                     responsePage = Realms.class;
                     isAuthorized = SyncopeConsoleSession.get().owns(label + "_SEARCH");
                 } else {
-                    responsePage = Topology.class;
+                    if (SyncopeConsoleApplication.get().getDefaultTopologyClass().contains("TabularTopology")) {
+                        responsePage = TabularTopology.class;
+                    } else {
+                        responsePage = Topology.class;
+                    }
                     isAuthorized = SyncopeConsoleSession.get().owns(StandardEntitlement.CONNECTOR_LIST)
                             && SyncopeConsoleSession.get().owns(StandardEntitlement.RESOURCE_LIST);
                 }
                 break;
 
             default:
-                pageParameters.add("selectedIndex", 0);
-                responsePage = Realms.class;
+                pageParameters.add(Realms.SELECTED_INDEX, 0);
+                responsePage = realmsPage;
         }
 
         AjaxEventBehavior clickToRealms = new AjaxEventBehavior("mousedown") {

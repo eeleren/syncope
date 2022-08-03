@@ -18,45 +18,34 @@
  */
 package org.apache.syncope.core.provisioning.api.event;
 
-import org.apache.syncope.common.lib.types.AnyTypeKind;
+import org.apache.syncope.core.persistence.api.entity.Any;
+import org.identityconnectors.framework.common.objects.SyncDeltaType;
 import org.springframework.context.ApplicationEvent;
 
-public class AnyDeletedEvent extends ApplicationEvent {
+public class AnyLifecycleEvent<A extends Any<?>> extends ApplicationEvent {
 
-    private static final long serialVersionUID = 6389886937942135639L;
+    private static final long serialVersionUID = -781747175059834365L;
 
-    private final AnyTypeKind anyTypeKind;
+    private final SyncDeltaType type;
 
-    private final String anyKey;
-
-    private final String anyName;
+    private final A any;
 
     private final String domain;
 
-    public AnyDeletedEvent(
-            final Object source,
-            final AnyTypeKind anyTypeKind,
-            final String anyKey,
-            final String anyName,
-            final String domain) {
-
+    public AnyLifecycleEvent(final Object source, final SyncDeltaType type, final A any, final String domain) {
         super(source);
-        this.anyTypeKind = anyTypeKind;
-        this.anyKey = anyKey;
-        this.anyName = anyName;
+
+        this.type = type;
+        this.any = any;
         this.domain = domain;
     }
 
-    public AnyTypeKind getAnyTypeKind() {
-        return anyTypeKind;
+    public SyncDeltaType getType() {
+        return type;
     }
 
-    public String getAnyKey() {
-        return anyKey;
-    }
-
-    public String getAnyName() {
-        return anyName;
+    public A getAny() {
+        return any;
     }
 
     public String getDomain() {

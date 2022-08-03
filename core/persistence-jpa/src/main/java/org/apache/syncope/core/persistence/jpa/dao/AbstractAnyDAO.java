@@ -19,6 +19,7 @@
 package org.apache.syncope.core.persistence.jpa.dao;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -33,7 +34,6 @@ import java.util.regex.Pattern;
 import javax.persistence.Query;
 import javax.persistence.TemporalType;
 import javax.persistence.TypedQuery;
-
 import org.apache.commons.jexl3.parser.Parser;
 import org.apache.commons.jexl3.parser.ParserConstants;
 import org.apache.commons.jexl3.parser.Token;
@@ -64,7 +64,6 @@ import org.apache.syncope.core.persistence.api.entity.resource.ExternalResource;
 import org.apache.syncope.core.persistence.api.entity.user.User;
 import org.apache.syncope.core.persistence.jpa.entity.user.JPAUser;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,9 +72,6 @@ public abstract class AbstractAnyDAO<A extends Any<?>> extends AbstractDAO<A> im
 
     @Autowired
     protected AnyUtilsFactory anyUtilsFactory;
-
-    @Autowired
-    protected ApplicationEventPublisher publisher;
 
     @Autowired
     @Lazy
@@ -131,6 +127,10 @@ public abstract class AbstractAnyDAO<A extends Any<?>> extends AbstractDAO<A> im
                 : ((String) resultKey)).
                 forEach(actualKey -> result.add(actualKey.toString()));
         return result;
+    }
+
+    protected Date convert(final LocalDateTime localDateTime) {
+        return Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
     }
 
     protected Date findLastChange(final String key, final String table) {

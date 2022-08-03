@@ -53,6 +53,7 @@ import org.apache.syncope.core.persistence.api.entity.AnyUtils;
 import org.apache.syncope.core.persistence.api.entity.Delegation;
 import org.apache.syncope.core.persistence.api.entity.Entity;
 import org.apache.syncope.core.persistence.api.entity.Implementation;
+import org.apache.syncope.core.persistence.api.entity.Membership;
 import org.apache.syncope.core.persistence.api.entity.Privilege;
 import org.apache.syncope.core.persistence.api.entity.Realm;
 import org.apache.syncope.core.persistence.api.entity.Role;
@@ -67,8 +68,6 @@ import org.apache.syncope.core.persistence.api.entity.user.User;
 import org.apache.syncope.core.persistence.jpa.entity.user.JPALinkedAccount;
 import org.apache.syncope.core.persistence.jpa.entity.user.JPAUMembership;
 import org.apache.syncope.core.persistence.jpa.entity.user.JPAUser;
-import org.apache.syncope.core.provisioning.api.event.AnyCreatedUpdatedEvent;
-import org.apache.syncope.core.provisioning.api.event.AnyDeletedEvent;
 import org.apache.syncope.core.provisioning.api.utils.RealmUtils;
 import org.apache.syncope.core.spring.ImplementationManager;
 import org.apache.syncope.core.spring.security.Encryptor;
@@ -289,6 +288,7 @@ public class JPAUserDAO extends AbstractAnyDAO<User> implements UserDAO {
         return query.getResultList();
     }
 
+    @Override
     public List<String> findAllKeys(final int page, final int itemsPerPage) {
         return findAllKeys(JPAUser.TABLE, page, itemsPerPage);
     }
@@ -300,13 +300,13 @@ public class JPAUserDAO extends AbstractAnyDAO<User> implements UserDAO {
         findAllResources(user).stream().
                 map(resource -> resource.getAccountPolicy()).
                 filter(policy -> policy != null).
-                forEachOrdered(policy -> policies.add(policy));
+                forEach(policy -> policies.add(policy));
 
         // add realm policies
         realmDAO.findAncestors(user.getRealm()).stream().
                 map(realm -> realm.getAccountPolicy()).
                 filter(policy -> policy != null).
-                forEachOrdered(policy -> policies.add(policy));
+                forEach(policy -> policies.add(policy));
 
         return policies;
     }
@@ -449,8 +449,6 @@ public class JPAUserDAO extends AbstractAnyDAO<User> implements UserDAO {
             throw e;
         }
 
-        publisher.publishEvent(new AnyCreatedUpdatedEvent<>(this, merged, AuthContextUtils.getDomain()));
-
         roleDAO.refreshDynMemberships(merged);
         Pair<Set<String>, Set<String>> dynGroupMembs = groupDAO.refreshDynMemberships(merged);
         dynRealmDAO.refreshDynMemberships(merged);
@@ -487,8 +485,6 @@ public class JPAUserDAO extends AbstractAnyDAO<User> implements UserDAO {
         }
 
         entityManager().remove(user);
-        publisher.publishEvent(new AnyDeletedEvent(
-                this, AnyTypeKind.USER, user.getKey(), user.getUsername(), AuthContextUtils.getDomain()));
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
@@ -513,7 +509,7 @@ public class JPAUserDAO extends AbstractAnyDAO<User> implements UserDAO {
         query.getResultList().stream().map(resultKey -> resultKey instanceof Object[]
                 ? (String) ((Object[]) resultKey)[0]
                 : ((String) resultKey)).
-                forEachOrdered(roleKey -> {
+                forEach(roleKey -> {
                     Role role = roleDAO.find(roleKey.toString());
                     if (role == null) {
                         LOG.error("Could not find role {}, even though returned by the native query", roleKey);
@@ -552,7 +548,7 @@ public class JPAUserDAO extends AbstractAnyDAO<User> implements UserDAO {
     public Collection<Group> findAllGroups(final User user) {
         Set<Group> result = new HashSet<>();
         result.addAll(user.getMemberships().stream().
-                map(membership -> membership.getRightEnd()).collect(Collectors.toSet()));
+                map(Membership::getRightEnd).collect(Collectors.toSet()));
         result.addAll(findDynGroups(user.getKey()));
 
         return result;

@@ -16,31 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.syncope.core.provisioning.api.event;
+package org.apache.syncope.common.lib.types;
 
-import org.apache.syncope.core.persistence.api.entity.Any;
-import org.springframework.context.ApplicationEvent;
+import javax.xml.bind.annotation.XmlEnum;
 
-public class AnyCreatedUpdatedEvent<A extends Any<?>> extends ApplicationEvent {
+@XmlEnum
+public enum BackOffStrategy {
+    FIXED("1000"),
+    EXPONENTIAL("100;30000;2"),
+    RANDOM("100;30000;2");
 
-    private static final long serialVersionUID = -781747175059834365L;
+    private final String defaultBackOffParams;
 
-    private final A any;
-
-    private final String domain;
-
-    public AnyCreatedUpdatedEvent(final Object source, final A any, final String domain) {
-        super(source);
-        this.any = any;
-        this.domain = domain;
+    BackOffStrategy(final String defaultBackOffParams) {
+        this.defaultBackOffParams = defaultBackOffParams;
     }
 
-    public A getAny() {
-        return any;
+    public String getDefaultBackOffParams() {
+        return defaultBackOffParams;
     }
-
-    public String getDomain() {
-        return domain;
-    }
-
 }

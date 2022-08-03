@@ -18,6 +18,7 @@
  */
 package org.apache.syncope.fit.core;
 
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -33,6 +34,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
 import javax.naming.directory.DirContext;
@@ -72,7 +75,6 @@ import org.apache.syncope.common.lib.to.MappingTO;
 import org.apache.syncope.common.lib.to.MembershipTO;
 import org.apache.syncope.common.lib.to.PropagationStatus;
 import org.apache.syncope.common.lib.to.ProvisioningResult;
-import org.apache.syncope.common.lib.to.SchedTaskTO;
 import org.apache.syncope.common.lib.to.TypeExtensionTO;
 import org.apache.syncope.common.lib.to.UserTO;
 import org.apache.syncope.common.lib.types.AnyTypeKind;
@@ -248,10 +250,12 @@ public class GroupITCase extends AbstractITCase {
     @Test
     public void patch() {
         GroupTO original = getBasicSampleTO("patch");
-        original.setUDynMembershipCond("(($groups==3;$resources!=ws-target-resource-1);aLong==1)");
+        original.setUDynMembershipCond(
+                "(($groups==ebf97068-aa4b-4a85-9f01-680e8c4cf227;$resources!=ws-target-resource-1);aLong==1)");
         original.getADynMembershipConds().put(
                 PRINTER,
-                "(($groups==7;cool==ss);$resources==ws-target-resource-2);$type==PRINTER");
+                "(($groups==ece66293-8f31-4a84-8e8d-23da36e70846;cool==ss);$resources==ws-target-resource-2);"
+                + "$type==PRINTER");
 
         GroupTO created = createGroup(original).getEntity();
 
@@ -965,22 +969,16 @@ public class GroupITCase extends AbstractITCase {
             ExecTO exec = groupService.provisionMembers(groupTO.getKey(), ProvisionAction.PROVISION);
             assertNotNull(exec.getRefKey());
 
-            int i = 0;
-
-            // wait for task exec completion (executions incremented)
-            SchedTaskTO taskTO;
-            do {
-                Thread.sleep(1000);
-
-                taskTO = taskService.read(TaskType.SCHEDULED, exec.getRefKey(), true);
-
-                assertNotNull(taskTO);
-                assertNotNull(taskTO.getExecutions());
-                i++;
-            } while (taskTO.getExecutions().isEmpty() && i < MAX_WAIT_SECONDS);
-            assertFalse(taskTO.getExecutions().isEmpty());
-
-            assertEquals(TaskJob.Status.SUCCESS.name(), taskTO.getExecutions().get(0).getStatus());
+            AtomicReference<List<ExecTO>> execs = new AtomicReference<>();
+            await().atMost(MAX_WAIT_SECONDS, TimeUnit.SECONDS).pollInterval(1, TimeUnit.SECONDS).until(() -> {
+                try {
+                    execs.set(taskService.read(TaskType.SCHEDULED, exec.getRefKey(), true).getExecutions());
+                    return !execs.get().isEmpty();
+                } catch (Exception e) {
+                    return false;
+                }
+            });
+            assertEquals(TaskJob.Status.SUCCESS.name(), execs.get().get(0).getStatus());
 
             // 6. verify that the user above is now fond on LDAP
             ConnObjectTO userOnLdap =

@@ -43,6 +43,7 @@ import org.apache.syncope.core.persistence.api.dao.UserDAO;
 import org.apache.syncope.core.persistence.api.entity.Any;
 import org.apache.syncope.core.persistence.api.entity.AnyType;
 import org.apache.syncope.core.persistence.api.entity.AnyUtils;
+import org.apache.syncope.core.persistence.api.entity.Membership;
 import org.apache.syncope.core.persistence.api.entity.Realm;
 import org.apache.syncope.core.persistence.api.entity.Relationship;
 import org.apache.syncope.core.persistence.api.entity.anyobject.AMembership;
@@ -55,8 +56,6 @@ import org.apache.syncope.core.persistence.jpa.entity.anyobject.JPAAMembership;
 import org.apache.syncope.core.persistence.jpa.entity.anyobject.JPAARelationship;
 import org.apache.syncope.core.persistence.jpa.entity.anyobject.JPAAnyObject;
 import org.apache.syncope.core.persistence.jpa.entity.user.JPAURelationship;
-import org.apache.syncope.core.provisioning.api.event.AnyCreatedUpdatedEvent;
-import org.apache.syncope.core.provisioning.api.event.AnyDeletedEvent;
 import org.apache.syncope.core.provisioning.api.utils.RealmUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Propagation;
@@ -220,7 +219,6 @@ public class JPAAnyObjectDAO extends AbstractAnyDAO<AnyObject> implements AnyObj
 
     protected Pair<AnyObject, Pair<Set<String>, Set<String>>> doSave(final AnyObject anyObject) {
         AnyObject merged = super.save(anyObject);
-        publisher.publishEvent(new AnyCreatedUpdatedEvent<>(this, merged, AuthContextUtils.getDomain()));
 
         Pair<Set<String>, Set<String>> dynGroupMembs = groupDAO.refreshDynMemberships(merged);
         dynRealmDAO.refreshDynMemberships(merged);
@@ -275,8 +273,6 @@ public class JPAAnyObjectDAO extends AbstractAnyDAO<AnyObject> implements AnyObj
         });
 
         entityManager().remove(anyObject);
-        publisher.publishEvent(new AnyDeletedEvent(
-                this, AnyTypeKind.ANY_OBJECT, anyObject.getKey(), anyObject.getName(), AuthContextUtils.getDomain()));
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
@@ -307,7 +303,7 @@ public class JPAAnyObjectDAO extends AbstractAnyDAO<AnyObject> implements AnyObj
     public Collection<Group> findAllGroups(final AnyObject anyObject) {
         Set<Group> result = new HashSet<>();
         result.addAll(anyObject.getMemberships().stream().
-                map(membership -> membership.getRightEnd()).collect(Collectors.toSet()));
+                map(Membership::getRightEnd).collect(Collectors.toSet()));
         result.addAll(findDynGroups(anyObject.getKey()));
 
         return result;

@@ -197,7 +197,6 @@ public class UserTest extends AbstractTest {
         } catch (InvalidEntityException e) {
             assertNotNull(e);
         }
-        entityManager().flush();
     }
 
     @Test
@@ -256,7 +255,8 @@ public class UserTest extends AbstractTest {
         account.add(applicationDAO.findPrivilege("getMighty"));
 
         account.setUsername(UUID.randomUUID().toString());
-        account.setPassword("Password123", CipherAlgorithm.AES);
+        account.setCipherAlgorithm(CipherAlgorithm.AES);
+        account.setPassword("Password123");
 
         AnyUtils anyUtils = anyUtilsFactory.getLinkedAccountInstance();
         LAPlainAttr attr = anyUtils.newPlainAttr();

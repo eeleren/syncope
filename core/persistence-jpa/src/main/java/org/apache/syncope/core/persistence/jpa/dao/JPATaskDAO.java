@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import javax.persistence.DiscriminatorValue;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
+import javax.persistence.OneToOne;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
 import org.apache.commons.lang3.StringUtils;
@@ -124,6 +125,16 @@ public class JPATaskDAO extends AbstractDAO<Task> implements TaskDAO {
         }
 
         return result;
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public boolean exists(final TaskType type, final String key) {
+        Query query = entityManager().createNativeQuery("SELECT id FROM Task WHERE id=? AND dtype=?");
+        query.setParameter(1, key);
+        query.setParameter(2, getEntityTableName(type));
+
+        return !query.getResultList().isEmpty();
     }
 
     @Transactional(readOnly = true)
@@ -331,7 +342,9 @@ public class JPATaskDAO extends AbstractDAO<Task> implements TaskDAO {
                     Field beanField = ReflectionUtils.findField(beanClass, field);
                     if (beanField != null
                             && (beanField.getAnnotation(ManyToOne.class) != null
-                            || beanField.getAnnotation(OneToMany.class) != null)) {
+                            || beanField.getAnnotation(OneToMany.class) != null
+                            || beanField.getAnnotation(OneToOne.class) != null)) {
+
                         field += "_id";
                     }
             }
@@ -486,8 +499,8 @@ public class JPATaskDAO extends AbstractDAO<Task> implements TaskDAO {
 
     @Override
     public List<PropagationTaskTO> purgePropagations(
-            final Date since, 
-            final List<ExecStatus> statuses, 
+            final Date since,
+            final List<ExecStatus> statuses,
             final List<ExternalResource> externalResources) {
         StringBuilder queryString = new StringBuilder("SELECT t.task_id "
                 + "FROM TaskExec t INNER JOIN Task z ON t.task_id=z.id AND z.dtype='PropagationTask' "
